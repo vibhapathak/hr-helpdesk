@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acme HR &amp; IT Helpdesk</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1d2433; --muted:#667085; --accent:#2f5bea; --border:#e3e6ec;
+          --warn:#b54708; --warnbg:#fff4e5; --ok:#067647; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151b; --card:#1b1f27; --text:#e6e9ef; --muted:#98a2b3;
+          --accent:#7b9bff; --border:#2c3340; --warn:#fdb022; --warnbg:#2a2214; --ok:#47cd89; } }
+  * { box-sizing:border-box } body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--text) }
+  main { max-width:760px; margin:0 auto; padding:24px 16px; display:flex; flex-direction:column; height:100vh }
+  h1 { font-size:20px; margin:0 0 4px } p.sub { color:var(--muted); margin:0 0 16px }
+  #log { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding-bottom:12px }
+  .msg { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; white-space:pre-wrap }
+  .user { align-self:flex-end; background:var(--accent); color:#fff; border:none; max-width:80% }
+  .meta { font-size:12px; color:var(--muted); margin-top:6px } .blocked { background:var(--warnbg); color:var(--warn) }
+  form { display:flex; gap:8px } input { flex:1; padding:12px; border-radius:8px; border:1px solid var(--border);
+         background:var(--card); color:var(--text); font:inherit }
+  button { padding:0 18px; border:none; border-radius:8px; background:var(--accent); color:#fff; font:inherit; cursor:pointer }
+</style>
+</head>
+<body>
+<main>
+  <h1>Acme HR &amp; IT Helpdesk</h1>
+  <p class="sub">Try: “How many casual leaves does E102 have left?” · “What’s the password policy?”</p>
+  <div id="log"></div>
+  <form id="f"><input id="q" autocomplete="off" placeholder="Ask an HR or IT question…" required><button>Send</button></form>
+</main>
+<script>
+let session = null;
+const log = document.getElementById('log');
+function add(text, cls, meta) {
+  const d = document.createElement('div'); d.className = 'msg ' + (cls || ''); d.textContent = text;
+  if (meta) { const m = document.createElement('div'); m.className = 'meta'; m.textContent = meta; d.appendChild(m); }
+  log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
+}
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault(); const q = document.getElementById('q'); const text = q.value.trim(); if (!text) return;
+  q.value = ''; add(text, 'user'); const pending = add('Thinking…');
+  try {
+    const r = await fetch('/chat', { method:'POST', headers:{'Content-Type':'application/json'},
+                                     body: JSON.stringify({ message:text, session_id:session }) });
+    const data = await r.json(); session = data.session_id; pending.remove();
+    const meta = `status: ${data.status} · tools: ${(data.tools_used||[]).join(', ') || 'none'} · ${data.latency_ms} ms`;
+    add(data.answer, ['blocked_injection','out_of_scope'].includes(data.status) ? 'blocked' : '', meta);
+  } catch (err) { pending.textContent = 'Error: ' + err; }
+});
+</script>
+</body>
+</html>
